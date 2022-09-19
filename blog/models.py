@@ -1,6 +1,30 @@
 from django.db import models
 from django.urls import reverse
 from django.contrib.auth.models import User
+from django.db.models import Count
+
+
+class PostQuerySet(models.QuerySet):
+    def year(self, year):
+        return self.filter(published_at__year=year).order_by('published_at')
+
+    def popular(self):
+        return self.annotate(
+        like_count=Count('likes')
+    ).order_by('-like_count')
+
+    def fetch_with_comments_count(self):
+        """Возвращает список постов с числом комментариев.
+        Работает существенно быстрее, чем запрос с двумя annotate()"""
+        posts_ids = [post.id for post in self]
+        posts_with_comments = Post.objects.\
+            filter(id__in=posts_ids)\
+            .annotate(comment_count=Count('comments'))\
+            .values_list('id', 'comment_count')
+        count_for_id = dict(posts_with_comments)
+        for post in self:
+            post.comment_count = count_for_id[post.id]
+        return self
 
 
 class Post(models.Model):
@@ -25,6 +49,8 @@ class Post(models.Model):
         related_name='posts',
         verbose_name='Теги')
 
+    objects = PostQuerySet.as_manager()
+
     def __str__(self):
         return self.title
 
@@ -37,8 +63,17 @@ class Post(models.Model):
         verbose_name_plural = 'посты'
 
 
+class TagQuerySet(models.QuerySet):
+    def popular(self):
+        return self.annotate(
+        post_count=Count('posts')
+    ).order_by('-post_count')
+
+
 class Tag(models.Model):
     title = models.CharField('Тег', max_length=20, unique=True)
+
+    objects = TagQuerySet.as_manager()
 
     def __str__(self):
         return self.title
@@ -59,6 +94,7 @@ class Comment(models.Model):
     post = models.ForeignKey(
         'Post',
         on_delete=models.CASCADE,
+        related_name='comments',
         verbose_name='Пост, к которому написан')
     author = models.ForeignKey(
         User,
