@@ -9,9 +9,7 @@ class PostQuerySet(models.QuerySet):
         return self.filter(published_at__year=year).order_by('published_at')
 
     def popular(self):
-        return self.annotate(
-        like_count=Count('likes')
-    ).order_by('-like_count')
+        return self.annotate(like_count=Count('likes')).order_by('-like_count')
 
     def fetch_with_comments_count(self):
         """Возвращает список постов с числом комментариев.
@@ -65,9 +63,7 @@ class Post(models.Model):
 
 class TagQuerySet(models.QuerySet):
     def popular(self):
-        return self.annotate(
-        post_count=Count('posts')
-    ).order_by('-post_count')
+        return self.annotate(post_count=Count('posts')).order_by('-post_count')
 
 
 class Tag(models.Model):
